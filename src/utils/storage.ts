@@ -98,7 +98,7 @@ const DEFAULT_ACTIVITY_LOGS: ActivityLog[] = [
 
 const DEFAULT_SETTINGS: Settings = {
   company: DEFAULT_COMPANY,
-  appsScriptUrl: "https://script.google.com/macros/s/AKfycbxYFSTOEMzmmU1JF3CAMfIZZaZEUM1q7Y-4jNpSKECKJZcbqqJ_L6iCt1Y6HWUuatqs4g/exec",
+  appsScriptUrl: "/api/action",
   sheetId: "",
   useGoogleSheets: true
 };
@@ -135,8 +135,8 @@ export function getInitialState(): AppState {
   
   const settings = loadOrInit('settings', DEFAULT_SETTINGS);
   
-  // Always force the deployed Google Apps Script backend URL and ensure useGoogleSheets is enabled
-  const deployedUrl = "https://script.google.com/macros/s/AKfycbxYFSTOEMzmmU1JF3CAMfIZZaZEUM1q7Y-4jNpSKECKJZcbqqJ_L6iCt1Y6HWUuatqs4g/exec";
+  // Always force the deployed Express MongoDB backend URL and ensure useGoogleSheets is enabled
+  const deployedUrl = "/api/action";
   if (settings.appsScriptUrl !== deployedUrl || !settings.useGoogleSheets) {
     settings.appsScriptUrl = deployedUrl;
     settings.useGoogleSheets = true;
@@ -187,11 +187,11 @@ export function saveStateToLocal(state: Partial<AppState>) {
 // Full app state sync module helper to Google Apps Script Web App
 export async function syncStateWithGoogleSheets(state: AppState, appsScriptUrl: string): Promise<{ success: boolean; message: string; remoteState?: Partial<AppState> }> {
   if (!appsScriptUrl) {
-    return { success: false, message: "Google Apps Script Web App URL is missing." };
+    return { success: false, message: "Backend URL is missing." };
   }
 
-  if (!appsScriptUrl.startsWith("https://script.google.com/")) {
-    return { success: false, message: "Invalid Apps Script Web App URL. It must begin with 'https://script.google.com/'" };
+  if (appsScriptUrl !== "/api/action" && !appsScriptUrl.startsWith("https://script.google.com/")) {
+    return { success: false, message: "Invalid backend URL format." };
   }
 
   try {
@@ -210,7 +210,11 @@ export async function syncStateWithGoogleSheets(state: AppState, appsScriptUrl: 
         payments: state.payments,
         stockLogs: state.stockLogs,
         activityLogs: state.activityLogs
-      }
+      },
+      auth: state.currentUser ? {
+        username: state.currentUser.username,
+        token: state.currentUser.passwordHash || "system-token"
+      } : undefined
     };
 
     const response = await fetch(appsScriptUrl, {
@@ -226,36 +230,39 @@ export async function syncStateWithGoogleSheets(state: AppState, appsScriptUrl: 
     if (result && result.success) {
       return { 
         success: true, 
-        message: "Synchronized successfully with Google Sheets!", 
+        message: "Synchronized successfully with the database!", 
         remoteState: result.data 
       };
     } else {
       return { 
         success: false, 
-        message: result.error || "Google Apps Script returned an unexpected response format." 
+        message: result.error || "Backend returned an unexpected response format." 
       };
     }
   } catch (error: any) {
     console.warn("Sync Warning (handled gracefully):", error);
     return { 
       success: false, 
-      message: `Sync failed: ${error?.message || error || "Network Error"}. Ensure Apps Script is published with 'Anyone' access.` 
+      message: `Sync failed: ${error?.message || error || "Network Error"}.` 
     };
   }
 }
 
 // Fetch all data from sheets
-export async function fetchAllDataFromSheets(appsScriptUrl: string): Promise<{ success: boolean; message: string; data?: Partial<AppState> }> {
+export async function fetchAllDataFromSheets(appsScriptUrl: string, currentUser?: User): Promise<{ success: boolean; message: string; data?: Partial<AppState> }> {
   if (!appsScriptUrl) {
-    return { success: false, message: "Google Apps Script Web App URL is missing." };
+    return { success: false, message: "Backend URL is missing." };
   }
 
-  if (!appsScriptUrl.startsWith("https://script.google.com/")) {
-    return { success: false, message: "Invalid Apps Script Web App URL. It must begin with 'https://script.google.com/'" };
+  if (appsScriptUrl !== "/api/action" && !appsScriptUrl.startsWith("https://script.google.com/")) {
+    return { success: false, message: "Invalid backend URL format." };
   }
 
   try {
-    const url = `${appsScriptUrl}?action=getAll`;
+    let url = `${appsScriptUrl}?action=getAll`;
+    if (currentUser) {
+      url += `&username=${encodeURIComponent(currentUser.username)}&token=${encodeURIComponent(currentUser.passwordHash)}`;
+    }
     const response = await fetch(url, {
       method: "GET",
       mode: "cors"
@@ -265,13 +272,13 @@ export async function fetchAllDataFromSheets(appsScriptUrl: string): Promise<{ s
     if (result && result.success) {
       return {
         success: true,
-        message: "Data loaded successfully from Google Sheets!",
+        message: "Data loaded successfully from the database!",
         data: result.data
       };
     } else {
       return {
         success: false,
-        message: result.error || "Failed to load data from Sheets."
+        message: result.error || "Failed to load data from the database."
       };
     }
   } catch (error: any) {

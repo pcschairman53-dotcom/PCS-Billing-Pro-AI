@@ -413,7 +413,7 @@ export default function App() {
   };
 
   const handleTriggerFetch = async () => {
-    const result = await fetchAllDataFromSheets(state.settings.appsScriptUrl);
+    const result = await fetchAllDataFromSheets(state.settings.appsScriptUrl, state.currentUser || undefined);
     if (result.success && result.data) {
       const remote = result.data as any;
       // Safely merge remote data supporting both camelCase and lowercase keys from Google Sheets
