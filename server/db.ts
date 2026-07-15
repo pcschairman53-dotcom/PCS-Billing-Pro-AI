@@ -2,17 +2,47 @@ import mongoose from "mongoose";
 import { Company, User } from "./models";
 
 const MONGODB_URI = process.env.MONGODB_URI;
+
+export function sanitizeMongoUri(uri: string): string {
+  if (!uri) return uri;
+  try {
+    const match = uri.match(/^(mongodb(?:\+srv)?:\/\/)(.*)$/);
+    if (!match) return uri;
+    const [_, scheme, rest] = match;
+    
+    const lastAtIndex = rest.lastIndexOf('@');
+    if (lastAtIndex === -1) return uri;
+    
+    const credentials = rest.substring(0, lastAtIndex);
+    const hostAndOptions = rest.substring(lastAtIndex + 1);
+    
+    const firstColonIndex = credentials.indexOf(':');
+    if (firstColonIndex === -1) {
+      return scheme + (credentials.includes('%') ? credentials : encodeURIComponent(credentials)) + "@" + hostAndOptions;
+    }
+    
+    const username = credentials.substring(0, firstColonIndex);
+    const password = credentials.substring(firstColonIndex + 1);
+    
+    const encodedUsername = username.includes('%') ? username : encodeURIComponent(username);
+    const encodedPassword = password.includes('%') ? password : encodeURIComponent(password);
+    
+    return scheme + encodedUsername + ":" + encodedPassword + "@" + hostAndOptions;
+  } catch (err) {
+    console.error("Error sanitizing Mongo URI:", err);
+    return uri;
+  }
+}
+
+const SANITIZED_MONGODB_URI = MONGODB_URI ? sanitizeMongoUri(MONGODB_URI) : "";
+
 export const isAtlasConfigured = !!(
-  MONGODB_URI &&
-  (MONGODB_URI.startsWith("mongodb://") || MONGODB_URI.startsWith("mongodb+srv://")) &&
-  !MONGODB_URI.includes("<username>") &&
-  !MONGODB_URI.includes("<password>") &&
-  !MONGODB_URI.includes("127.0.0.1") &&
-  !MONGODB_URI.includes("localhost") &&
-  !MONGODB_URI.includes("1983") &&
-  !/\/\/1983\b/.test(MONGODB_URI) &&
-  !/\/\/\d{4}\b/.test(MONGODB_URI) &&
-  !/\b1983\b/.test(MONGODB_URI)
+  SANITIZED_MONGODB_URI &&
+  (SANITIZED_MONGODB_URI.startsWith("mongodb://") || SANITIZED_MONGODB_URI.startsWith("mongodb+srv://")) &&
+  !SANITIZED_MONGODB_URI.includes("<username>") &&
+  !SANITIZED_MONGODB_URI.includes("<password>") &&
+  !SANITIZED_MONGODB_URI.includes("127.0.0.1") &&
+  !SANITIZED_MONGODB_URI.includes("localhost")
 );
 
 export let isDbConnected = false;
@@ -70,7 +100,7 @@ export async function connectDatabase() {
       });
     }
 
-    await mongoose.connect(MONGODB_URI!, {
+    await mongoose.connect(SANITIZED_MONGODB_URI, {
       serverSelectionTimeoutMS: 4000,
     });
     isDbConnected = true;
