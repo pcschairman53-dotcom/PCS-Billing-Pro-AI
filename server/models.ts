@@ -216,15 +216,15 @@ const ActivityLogSchema = new Schema({
 
 ActivityLogSchema.index({ tenantId: 1, id: 1 }, { unique: true });
 
-export const User = mongoose.model("User", UserSchema);
-export const Company = mongoose.model("Company", CompanySchema);
-export const Category = mongoose.model("Category", CategorySchema);
-export const Product = mongoose.model("Product", ProductSchema);
-export const Customer = mongoose.model("Customer", CustomerSchema);
-export const Supplier = mongoose.model("Supplier", SupplierSchema);
-export const SalesInvoice = mongoose.model("SalesInvoice", SalesInvoiceSchema);
-export const PurchaseEntry = mongoose.model("PurchaseEntry", PurchaseEntrySchema);
-export const Expense = mongoose.model("Expense", ExpenseSchema);
-export const Payment = mongoose.model("Payment", PaymentSchema);
-export const StockLog = mongoose.model("StockLog", StockLogSchema);
-export const ActivityLog = mongoose.model("ActivityLog", ActivityLogSchema);
+export const User: any = mongoose.models.User || mongoose.model("User", UserSchema);
+export const Company: any = mongoose.models.Company || mongoose.model("Company", CompanySchema);
+export const Category: any = mongoose.models.Category || mongoose.model("Category", CategorySchema);
+export const Product: any = mongoose.models.Product || mongoose.model("Product", ProductSchema);
+export const Customer: any = mongoose.models.Customer || mongoose.model("Customer", CustomerSchema);
+export const Supplier: any = mongoose.models.Supplier || mongoose.model("Supplier", SupplierSchema);
+export const SalesInvoice: any = mongoose.models.SalesInvoice || mongoose.model("SalesInvoice", SalesInvoiceSchema);
+export const PurchaseEntry: any = mongoose.models.PurchaseEntry || mongoose.model("PurchaseEntry", PurchaseEntrySchema);
+export const Expense: any = mongoose.models.Expense || mongoose.model("Expense", ExpenseSchema);
+export const Payment: any = mongoose.models.Payment || mongoose.model("Payment", PaymentSchema);
+export const StockLog: any = mongoose.models.StockLog || mongoose.model("StockLog", StockLogSchema);
+export const ActivityLog: any = mongoose.models.ActivityLog || mongoose.model("ActivityLog", ActivityLogSchema);

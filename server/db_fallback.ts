@@ -1,7 +1,11 @@
 import fs from "fs";
 import path from "path";
 
-const FILE_PATH = path.join(process.cwd(), "server_db_fallback.json");
+const FILE_PATH = process.env.VERCEL
+  ? "/tmp/server_db_fallback.json"
+  : path.join(process.cwd(), "server_db_fallback.json");
+
+let memoryDb: DbStructure | null = null;
 
 // Simple custom hashing helper to match the frontend and server hashing
 function hashPassword(password: string): string {
@@ -85,21 +89,39 @@ function getInitialData(): DbStructure {
 
 export class JsonDb {
   private static read(): DbStructure {
+    if (memoryDb) {
+      return memoryDb;
+    }
     try {
       if (!fs.existsSync(FILE_PATH)) {
-        const initial = getInitialData();
-        fs.writeFileSync(FILE_PATH, JSON.stringify(initial, null, 2), "utf8");
+        // Try to load initial from packaged fallback file if it exists
+        const packagedPath = path.join(process.cwd(), "server_db_fallback.json");
+        let initial = getInitialData();
+        if (fs.existsSync(packagedPath)) {
+          try {
+            initial = JSON.parse(fs.readFileSync(packagedPath, "utf8"));
+          } catch {}
+        }
+        try {
+          fs.writeFileSync(FILE_PATH, JSON.stringify(initial, null, 2), "utf8");
+        } catch (e) {
+          console.warn("Could not write initial DB to fallback path, using in-memory only:", e);
+        }
+        memoryDb = initial;
         return initial;
       }
       const raw = fs.readFileSync(FILE_PATH, "utf8");
-      return JSON.parse(raw);
+      memoryDb = JSON.parse(raw);
+      return memoryDb!;
     } catch (e) {
-      console.error("Error reading JSON fallback database:", e);
-      return getInitialData();
+      console.error("Error reading JSON fallback database, using in-memory:", e);
+      memoryDb = getInitialData();
+      return memoryDb;
     }
   }
 
   private static write(data: DbStructure) {
+    memoryDb = data;
     try {
       fs.writeFileSync(FILE_PATH, JSON.stringify(data, null, 2), "utf8");
     } catch (e) {

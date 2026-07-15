@@ -1,4 +1,5 @@
 import express from "express";
+import mongoose from "mongoose";
 import { connectDatabase } from "./db";
 import authRoutes from "./routes/auth";
 import actionRoutes from "./routes/action";
@@ -20,17 +21,8 @@ app.use("/api/ai", aiRoutes);
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", databaseConnected: mongooseConnectionState() });
+  res.json({ status: "ok", databaseConnected: mongoose.connection.readyState === 1 });
 });
-
-function mongooseConnectionState() {
-  try {
-    const mongoose = require("mongoose");
-    return mongoose.connection.readyState === 1;
-  } catch {
-    return false;
-  }
-}
 
 export default app;
 export { app };
