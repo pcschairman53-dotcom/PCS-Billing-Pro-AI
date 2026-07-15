@@ -7,7 +7,7 @@ import app from "./server/app";
 // Load environment variables
 dotenv.config();
 
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 async function setupServer() {
   // Vite dev server middleware in non-production, or static build folder in production
