@@ -34,8 +34,22 @@ export async function connectDatabase() {
     return false;
   }
 
+  // If already connected, reuse connection
+  if (mongoose.connection.readyState === 1) {
+    isDbConnected = true;
+    return true;
+  }
+
   try {
     console.log("Connecting to MongoDB Atlas...");
+    
+    // Register mongoose error event listener if not already done
+    if (mongoose.connection.listeners("error").length === 0) {
+      mongoose.connection.on("error", (err) => {
+        console.error("Mongoose connection error event emitted:", err);
+      });
+    }
+
     await mongoose.connect(MONGODB_URI!, {
       serverSelectionTimeoutMS: 4000,
     });
