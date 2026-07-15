@@ -119,6 +119,29 @@ function deduplicateById<T extends { id?: string }>(items: T[]): T[] {
   return result;
 }
 
+// Retry helper to safely handle MongoDB write conflicts or parallel sync races
+async function retryOnConflict<T>(fn: () => Promise<T>, maxRetries = 3, delayMs = 100): Promise<T> {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      attempt++;
+      const isConflict =
+        err?.name === "MongoBulkWriteError" ||
+        err?.code === 11000 ||
+        err?.message?.includes("E11000") ||
+        err?.message?.includes("duplicate key");
+      if (isConflict && attempt < maxRetries) {
+        console.warn(`Database write conflict detected (attempt ${attempt}/${maxRetries}). Retrying in ${delayMs}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delayMs + Math.random() * 100));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 // POST route handler
 export async function handleAction(req: Request, res: Response) {
   const { action, data, auth } = req.body || {};
@@ -252,56 +275,76 @@ export async function handleAction(req: Request, res: Response) {
           await Company.findOneAndUpdate({ tenantId }, company, { new: true, upsert: true });
         }
 
-        // Clean-slate bulk update logic for each tenant with defensive deduplication
+        // Clean-slate bulk update logic for each tenant with defensive deduplication and retry-on-conflict
         if (categories) {
-          await Category.deleteMany({ tenantId });
-          const mapped = deduplicateById(categories.map((x: any) => ({ ...x, tenantId })));
-          if (mapped.length > 0) await Category.insertMany(mapped);
+          await retryOnConflict(async () => {
+            await Category.deleteMany({ tenantId });
+            const mapped = deduplicateById(categories.map((x: any) => ({ ...x, tenantId })));
+            if (mapped.length > 0) await Category.insertMany(mapped);
+          });
         }
         if (products) {
-          await Product.deleteMany({ tenantId });
-          const mapped = deduplicateById(products.map((x: any) => ({ ...x, tenantId })));
-          if (mapped.length > 0) await Product.insertMany(mapped);
+          await retryOnConflict(async () => {
+            await Product.deleteMany({ tenantId });
+            const mapped = deduplicateById(products.map((x: any) => ({ ...x, tenantId })));
+            if (mapped.length > 0) await Product.insertMany(mapped);
+          });
         }
         if (customers) {
-          await Customer.deleteMany({ tenantId });
-          const mapped = deduplicateById(customers.map((x: any) => ({ ...x, tenantId })));
-          if (mapped.length > 0) await Customer.insertMany(mapped);
+          await retryOnConflict(async () => {
+            await Customer.deleteMany({ tenantId });
+            const mapped = deduplicateById(customers.map((x: any) => ({ ...x, tenantId })));
+            if (mapped.length > 0) await Customer.insertMany(mapped);
+          });
         }
         if (suppliers) {
-          await Supplier.deleteMany({ tenantId });
-          const mapped = deduplicateById(suppliers.map((x: any) => ({ ...x, tenantId })));
-          if (mapped.length > 0) await Supplier.insertMany(mapped);
+          await retryOnConflict(async () => {
+            await Supplier.deleteMany({ tenantId });
+            const mapped = deduplicateById(suppliers.map((x: any) => ({ ...x, tenantId })));
+            if (mapped.length > 0) await Supplier.insertMany(mapped);
+          });
         }
         if (sales) {
-          await SalesInvoice.deleteMany({ tenantId });
-          const mapped = deduplicateById(sales.map((x: any) => ({ ...x, tenantId })));
-          if (mapped.length > 0) await SalesInvoice.insertMany(mapped);
+          await retryOnConflict(async () => {
+            await SalesInvoice.deleteMany({ tenantId });
+            const mapped = deduplicateById(sales.map((x: any) => ({ ...x, tenantId })));
+            if (mapped.length > 0) await SalesInvoice.insertMany(mapped);
+          });
         }
         if (purchases) {
-          await PurchaseEntry.deleteMany({ tenantId });
-          const mapped = deduplicateById(purchases.map((x: any) => ({ ...x, tenantId })));
-          if (mapped.length > 0) await PurchaseEntry.insertMany(mapped);
+          await retryOnConflict(async () => {
+            await PurchaseEntry.deleteMany({ tenantId });
+            const mapped = deduplicateById(purchases.map((x: any) => ({ ...x, tenantId })));
+            if (mapped.length > 0) await PurchaseEntry.insertMany(mapped);
+          });
         }
         if (expenses) {
-          await Expense.deleteMany({ tenantId });
-          const mapped = deduplicateById(expenses.map((x: any) => ({ ...x, tenantId })));
-          if (mapped.length > 0) await Expense.insertMany(mapped);
+          await retryOnConflict(async () => {
+            await Expense.deleteMany({ tenantId });
+            const mapped = deduplicateById(expenses.map((x: any) => ({ ...x, tenantId })));
+            if (mapped.length > 0) await Expense.insertMany(mapped);
+          });
         }
         if (payments) {
-          await Payment.deleteMany({ tenantId });
-          const mapped = deduplicateById(payments.map((x: any) => ({ ...x, tenantId })));
-          if (mapped.length > 0) await Payment.insertMany(mapped);
+          await retryOnConflict(async () => {
+            await Payment.deleteMany({ tenantId });
+            const mapped = deduplicateById(payments.map((x: any) => ({ ...x, tenantId })));
+            if (mapped.length > 0) await Payment.insertMany(mapped);
+          });
         }
         if (stockLogs) {
-          await StockLog.deleteMany({ tenantId });
-          const mapped = deduplicateById(stockLogs.map((x: any) => ({ ...x, tenantId })));
-          if (mapped.length > 0) await StockLog.insertMany(mapped);
+          await retryOnConflict(async () => {
+            await StockLog.deleteMany({ tenantId });
+            const mapped = deduplicateById(stockLogs.map((x: any) => ({ ...x, tenantId })));
+            if (mapped.length > 0) await StockLog.insertMany(mapped);
+          });
         }
         if (activityLogs) {
-          await ActivityLog.deleteMany({ tenantId });
-          const mapped = deduplicateById(activityLogs.map((x: any) => ({ ...x, tenantId })));
-          if (mapped.length > 0) await ActivityLog.insertMany(mapped);
+          await retryOnConflict(async () => {
+            await ActivityLog.deleteMany({ tenantId });
+            const mapped = deduplicateById(activityLogs.map((x: any) => ({ ...x, tenantId })));
+            if (mapped.length > 0) await ActivityLog.insertMany(mapped);
+          });
         }
 
         return res.json({ success: true, message: "Multi-tenant sync completed successfully." });
