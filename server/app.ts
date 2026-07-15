@@ -21,8 +21,18 @@ app.use((req, res, next) => {
   next();
 });
 
-// Initialize database connection
-connectDatabase();
+// Initialize database connection (fire-and-forget to pre-warm connection)
+connectDatabase().catch((err) => console.error("Pre-warming connection failed:", err));
+
+// Middleware to ensure DB connection is fully resolved (connected or fallback ready) before handling requests
+app.use(async (req, res, next) => {
+  try {
+    await connectDatabase();
+  } catch (err) {
+    console.error("Database connection middleware error:", err);
+  }
+  next();
+});
 
 // API Route Bindings
 app.use("/api/auth", authRoutes);

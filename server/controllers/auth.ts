@@ -42,7 +42,7 @@ export async function register(req: Request, res: Response) {
     phone,
     state,
     address
-  } = req.body;
+  } = req.body || {};
 
   if (!companyName || !fullName || !username || !password) {
     return res.status(400).json({ success: false, error: "Please fill in all required registration fields." });
@@ -155,7 +155,7 @@ export async function register(req: Request, res: Response) {
 }
 
 export async function login(req: Request, res: Response) {
-  const { username, password } = req.body;
+  const { username, password } = req.body || {};
 
   if (!username || !password) {
     return res.status(400).json({ success: false, error: "Please enter both username and password." });

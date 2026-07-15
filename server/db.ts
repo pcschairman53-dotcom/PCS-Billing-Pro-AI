@@ -9,8 +9,10 @@ export const isAtlasConfigured = !!(
   !MONGODB_URI.includes("<password>") &&
   !MONGODB_URI.includes("127.0.0.1") &&
   !MONGODB_URI.includes("localhost") &&
+  !MONGODB_URI.includes("1983") &&
   !/\/\/1983\b/.test(MONGODB_URI) &&
-  !/\/\/\d{4}\b/.test(MONGODB_URI)
+  !/\/\/\d{4}\b/.test(MONGODB_URI) &&
+  !/\b1983\b/.test(MONGODB_URI)
 );
 
 export let isDbConnected = false;
@@ -29,15 +31,33 @@ export function hashPassword(password: string): string {
 
 export async function connectDatabase() {
   if (!isAtlasConfigured) {
-    console.log("No valid MongoDB Atlas URI configured. Using high-performance local database server_db_fallback.json.");
     isDbConnected = false;
     return false;
   }
 
   // If already connected, reuse connection
-  if (mongoose.connection.readyState === 1) {
+  if ((mongoose.connection.readyState as number) === 1) {
     isDbConnected = true;
     return true;
+  }
+
+  // If currently connecting, wait for it to complete
+  if ((mongoose.connection.readyState as number) === 2) {
+    await new Promise((resolve) => {
+      const interval = setInterval(() => {
+        if ((mongoose.connection.readyState as number) !== 2) {
+          clearInterval(interval);
+          resolve((mongoose.connection.readyState as number) === 1);
+        }
+      }, 50);
+      // Timeout after 4 seconds
+      setTimeout(() => {
+        clearInterval(interval);
+        resolve(false);
+      }, 4000);
+    });
+    isDbConnected = (mongoose.connection.readyState as number) === 1;
+    return isDbConnected;
   }
 
   try {

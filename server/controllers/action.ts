@@ -103,7 +103,7 @@ export async function getAllData(req: Request, res: Response) {
 
 // POST route handler
 export async function handleAction(req: Request, res: Response) {
-  const { action, data, auth } = req.body;
+  const { action, data, auth } = req.body || {};
 
   if (!action) {
     return res.status(400).json({ success: false, error: "Missing 'action' parameter." });

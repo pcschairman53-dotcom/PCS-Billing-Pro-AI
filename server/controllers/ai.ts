@@ -22,7 +22,7 @@ function getAiClient(): GoogleGenAI {
 }
 
 export async function analyzeBusinessMetrics(req: Request, res: Response) {
-  const { type, data } = req.body;
+  const { type, data } = req.body || {};
   
   if (!type || !data) {
     return res.status(400).json({ success: false, error: "Missing 'type' or 'data' in request body." });
